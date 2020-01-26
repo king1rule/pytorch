@@ -14,6 +14,7 @@ from . import (
     RpcBackendOptions,
     WorkerInfo,
     _cleanup_python_rpc_handler,
+    _delete_all_user_rrefs,
     _destroy_rref_context,
     _invoke_remote_builtin,
     _invoke_remote_python_udf,
@@ -213,6 +214,7 @@ def shutdown(graceful=True):
 
     if graceful:
         _wait_all_workers()
+        _delete_all_user_rrefs()
         _agent.join()
     try:
         # This raises a `TORCH_CHECK()` exception on RRef leak detected.

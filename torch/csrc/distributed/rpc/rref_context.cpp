@@ -140,8 +140,20 @@ void RRefContext::delUser(
 
     fm->addCallback([](const Message& /* unused */,
                        const c10::optional<utils::FutureError>& futErr) {
-      RRefContext::handleException(futErr);
+      handleException(futErr);
     });
+
+    confirmedUsers_.erase(forkId);
+  }
+}
+
+void RRefContext::delAllUsers() {
+  for (const auto& user : confirmedUsers_) {
+    auto rref_ptr = user.second.lock();
+    if (rref_ptr == nullptr) {
+      continue;
+    }
+    rref_ptr->tryDel();
   }
 }
 
@@ -253,8 +265,8 @@ void RRefContext::notifyOwnerAndParentOfFork(
       delForkOfOwner(rref->rrefId(), forkId);
     } else {
       // If the parent is the owner, this fork has already been added into the
-      // forks_ map when the owner sends the message to the callee user. Hence,
-      // it is not necessary to send another RREF_CHILD_ACCEPT or
+      // forks_ map when the owner sends the message to the callee user.
+      // Hence, it is not necessary to send another RREF_CHILD_ACCEPT or
       // RREF_FORK_REQUEST back to the owner. See Note [Early Fork
       // Registration].
     }
@@ -264,8 +276,8 @@ void RRefContext::notifyOwnerAndParentOfFork(
   if (rref->isOwner()) {
     // See Note [Useful Phantom Fork ID for User to Owner Call]
     // In this case, the owner is the caller, and it does not add the fork id
-    // into forks_. Because, there will be no real `UserRRef` associated with
-    // this fork ID.
+    // into forks_. Because, there will be no real `UserRRef` associated
+    // with this fork ID.
     auto fm = agent_->send(
         agent_->getWorkerInfo(parent), RRefChildAccept(forkId).toMessage());
     fm->addCallback([](const Message& /* unused */,
@@ -327,6 +339,10 @@ void RRefContext::delPendingUser(const ForkId& forkId) {
   TORCH_INTERNAL_ASSERT(
       iter != pendingUsers_.end(),
       "Inconsistent states: attempt to delete a non-exist UserRRef.");
+  confirmedUsers_.emplace(
+      std::piecewise_construct,
+      std::forward_as_tuple(forkId),
+      std::forward_as_tuple(iter->second));
   pendingUsers_.erase(iter);
 }
 

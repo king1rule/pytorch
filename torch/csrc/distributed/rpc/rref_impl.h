@@ -204,6 +204,9 @@ class RRef : public RRefInterface {
     return rrefId_;
   }
 
+  virtual void tryDel() {}
+
+  // returns true if this RRef holds an py::object, false if IValue
   inline bool isPyObj() {
     return type_ == PyObjectType::get();
   }
@@ -248,6 +251,8 @@ class UserRRef final : public RRef {
   // yet, this call will block.
   IValue toHere();
 
+  void tryDel() override;
+
   // Upon destruction, this ``UserRRef`` will tell the owner to deref.
   ~UserRRef() override;
 
@@ -261,6 +266,10 @@ class UserRRef final : public RRef {
       TypePtr type);
 
   const ForkId forkId_;
+
+  // Indicates if this user has sent delete message to it's owner.
+  std::mutex sentDelUserMutex_;
+  bool sentDelUser_{false};
 };
 
 // Keep the template only on the derived class because ``RRefContext`` needs to
