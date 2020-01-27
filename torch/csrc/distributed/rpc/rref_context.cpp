@@ -41,7 +41,9 @@ void RRefContext::handleException(
     const c10::optional<utils::FutureError>& futErr) {
   if (futErr) {
     // TODO: allow users to register an error handler and call it here.
-    VLOG(1) << "Got exception: " << (*futErr).what();
+    LOG(ERROR) << "Got exception: " << (*futErr).what();
+    std::cout << "Got exception: " << (*futErr).what() << std::endl;
+    std::cerr << "Got exception: " << (*futErr).what() << std::endl;
     throw std::runtime_error((*futErr).what());
   }
 }
@@ -148,13 +150,21 @@ void RRefContext::delUser(
 }
 
 void RRefContext::delAllUsers() {
+  LOG(ERROR) << getWorkerName() << ": Entering delAllUsers(). "
+             << confirmedUsers_.size();
+  auto count = 0;
   for (const auto& user : confirmedUsers_) {
+    ++count;
     auto rref_ptr = user.second.lock();
     if (rref_ptr == nullptr) {
+      LOG(ERROR) << getWorkerName() << ":  No. " << count << " deleted by GC.";
       continue;
     }
+    LOG(ERROR) << getWorkerName() << ":  No. " << count
+               << " deleted proactively. RRefID: " << rref_ptr->rrefId();
     rref_ptr->tryDel();
   }
+  LOG(ERROR) << getWorkerName() << ": Exiting delAllUsers()";
 }
 
 std::shared_ptr<RRef> RRefContext::getOrCreateRRef(
